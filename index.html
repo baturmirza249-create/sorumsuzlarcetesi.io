@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kloroplast, ATP, Pigmentler ve Fotosentez 3B</title>
+<style>
+:root{--bg:#e8f3e4;--fg:#12301c;--panel:#fbfff8;--line:#b9d5b2;--acc:#2f7d32;--sun:#b07800;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0c1f17;--fg:#e3f3dc;--panel:#133126;--line:#2b5a43;--acc:#8fd46a;--sun:#ffd24a}}
+:root[data-theme="dark"]{--bg:#0c1f17;--fg:#e3f3dc;--panel:#133126;--line:#2b5a43;--acc:#8fd46a;--sun:#ffd24a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:Georgia,serif;display:flex;flex-direction:column;overflow:hidden}
+nav{display:flex;gap:6px;padding:10px 12px 6px;overflow-x:auto}
+button{font:.8rem system-ui,sans-serif;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 11px;cursor:pointer;white-space:nowrap}
+button[aria-pressed="true"]{background:var(--acc);color:#07200f;border-color:var(--acc)}
+button:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+#stage{flex:1;min-height:0;touch-action:none;background:radial-gradient(ellipse at 50% 40%,rgba(120,220,150,.25),transparent 70%)}
+canvas{display:block}
+#ui{background:var(--panel);border-top:1px solid var(--line);padding:10px 14px 14px;max-height:48%;overflow:auto}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+#info h2{font-size:1rem;margin:4px 0}
+#info p{margin:0;font-size:.92rem;line-height:1.55;max-width:72ch}
+#spec{width:100%;max-width:420px;height:110px;margin-top:8px;display:none}
+</style></head><body>
+<nav id="tabs"></nav>
+<div id="stage"></div>
+<div id="ui"><div class="row" id="items"></div><div class="row" id="extra"></div><div id="info"><h2></h2><p></p></div><canvas id="spec" width="420" height="110"></canvas></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),T=THREE;
+const scene=new T.Scene(),cam=new T.PerspectiveCamera(45,1,.1,100),rd=new T.WebGLRenderer({antialias:true,alpha:true});
+rd.setPixelRatio(Math.min(devicePixelRatio,2));$('#stage').appendChild(rd.domElement);
+scene.add(new T.AmbientLight(0xffffff,.7));const dl=new T.DirectionalLight(0xffffff,.9);dl.position.set(3,5,6);scene.add(dl);const pl=new T.PointLight(0x88ffaa,1.3,40);scene.add(pl);
+const V={};let cur=null,par=null;
+function view(k,w,h){const g=new T.Group();g.visible=false;scene.add(g);return V[k]={g,w,h,m:{},items:[]}}
+function mesh(v,key,geo,col,o={}){const m=new T.Mesh(geo,new T.MeshPhongMaterial(Object.assign({color:col,shininess:50},o)));(par||v.g).add(m);if(key)(v.m[key]=v.m[key]||[]).push(m.material);return m}
+function chip(t,col,k=1,tc='#fff'){const c=document.createElement('canvas');c.width=256;c.height=96;const x=c.getContext('2d');x.fillStyle=col;x.beginPath();(x.roundRect||x.rect).call(x,4,8,248,80,40);x.fill();x.fillStyle=tc;x.font='bold 40px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(t,128,50);const s=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(c),transparent:true,depthTest:false}));s.scale.set(k,k*.375,1);return s}
+function put(v,t,col,x,y,z,k,tc){const s=chip(t,col,k,tc);s.position.set(x,y,z||.8);(par||v.g).add(s);return s}
+const P3=(x,y,z=0)=>new T.Vector3(x,y,z);
+function ball(v,key,p,r,col){const m=mesh(v,key,new T.SphereGeometry(r,16,12),col);m.position.copy(p);return m}
+function bond(v,a,b,col=0xaaaaaa,r=.045,key){const d=new T.Vector3().subVectors(b,a),m=mesh(v,key,new T.CylinderGeometry(r,r,d.length(),8),col);m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(P3(0,1,0),d.normalize());return m}
+function ring(v,key,cx,cy,n,r,rot,cols=[]){const p=[];for(let i=0;i<n;i++){const a=(rot+360/n*i)*Math.PI/180;p.push(P3(cx+r*Math.cos(a),cy+r*Math.sin(a)))}p.forEach((q,i)=>{ball(v,key,q,.13,cols[i]||0x8c8c8c);bond(v,q,p[(i+1)%n],0xaaaaaa,.04,key)});return p}
+function glow(v,key){const a=[].concat(key);for(const k in v.m)v.m[k].forEach(m=>m.emissive.setHex(a.includes(k)?0x666633:0))}
+let bz=10,zf=1,tour=false,ti=0,tt=0;const N=0x3b6ef0,O=0xe03a3a,PH=0xf0932b;
+
+/* 1. KLOROPLAST */
+const C=view('chloro',6,3.6),sp=new T.SphereGeometry(1,40,28),tr={transparent:true,depthWrite:false,side:2};
+[['outer',0x4aa86a,.14,2.5,1.4],['inner',0x7fcf7a,.14,2.4,1.3],['stroma',0xb5e68a,.07,2.35,1.25]].forEach(([k,c,o,x,y])=>{mesh(C,k,sp,c,Object.assign({opacity:o},tr)).scale.set(x,y,y)});
+const gp=[[-1.5,.1,.2],[-.8,-.35,-.4],[-.7,.5,.1],[0,0,.45],[.1,.45,-.3],[.8,-.3,.1],[1.45,.15,-.2],[.7,.4,.4],[-.1,-.5,-.1]].map(a=>P3(...a));
+gp.forEach(p=>{for(let i=0;i<7;i++){const r=.3-.02*Math.abs(i-3),d=mesh(C,'grana',new T.CylinderGeometry(r,r,.045,28),0x1f8f45);d.position.set(p.x,p.y+(i-3)*.07,p.z)}});
+gp.forEach((p,i)=>bond(C,p,gp[(i+1)%9],0x79c26a,.03,'lamella'));
+mesh(C,'dna',new T.TorusGeometry(.2,.035,8,24),0xffa94d).position.set(-.4,-.75,.3);
+for(let i=0;i<45;i++){let x,y,z;do{x=(Math.random()*2-1)*2.2;y=(Math.random()*2-1)*1.1;z=(Math.random()*2-1)*1.1}while(x*x/4.8+y*y/1.2+z*z/1.2>1);mesh(C,'ribo',new T.SphereGeometry(.03,6,6),0xe8e8e8).position.set(x,y,z)}
+[[-1.2,.9,.2],[.4,-.85,-.5],[1.3,.8,.3],[-.2,.85,-.4],[1.9,-.4,.2]].forEach(a=>mesh(C,'lipid',new T.SphereGeometry(.09,12,10),0xf08a24).position.set(...a));
+[[-1.95,-.35,.2],[1.85,-.4,.1],[0,-.9,.5]].forEach(a=>mesh(C,'starch',new T.SphereGeometry(.15,18,14),0xf4f1e4).position.set(...a));
+C.items=[['outer','Dış zar','Dış zar','Kloroplastı saran dış zar, küçük moleküllere karşı geçirgendir. İç zarla birlikte çift zar oluşturur.'],['inner','İç zar','İç zar','Seçici geçirgendir; CO₂, su, şekerler ve iyonların stromaya girişini denetler.'],['stroma','Stroma','Stroma','Zarın içindeki sıvı matristir. Calvin döngüsü enzimleri (RuBisCO), DNA ve ribozomlar burada bulunur; CO₂ burada organik maddeye dönüşür.'],['grana','Granum','Granum ve tilakoit','Yassı kesecikler olan tilakoitlerin üst üste dizilmesiyle granum oluşur. Zarlarında pigmentler, fotosistemler, ETS ve ATP sentaz bulunur. Işığa bağlı tepkimeler burada olur.'],['lamella','Lamel','Stroma lamelleri','Granumları birbirine bağlayan tilakoit uzantılarıdır.'],['dna','DNA','Kloroplast DNA\'sı','Halkasal DNA\'dır; bazı kloroplast proteinlerinin bilgisini taşır.'],['ribo','Ribozom','Ribozom','Kloroplast kendi proteinlerinin bir kısmını stromadaki 70S tipi ribozomlarla sentezler.'],['starch','Nişasta','Nişasta tanesi','Fazla glikoz geçici olarak nişasta olarak stromada depolanır.'],['lipid','Lipit damlası','Plastoglobül','Lipit ve pigment (karotenoit gibi) depolayan yağ damlacıklarıdır.']];
+
+/* 2. ATP */
+const A=view('atp',10.5,3.6);
+const adn=ring(A,'adenin',-3.6,0,6,.55,30,[0,N,0,N,0,N]),pnt=ring(A,'adenin',-2.745,0,5,.468,144,[N,0,0,N,N]);
+ball(A,'adenin',P3(-3.6,1.05),.13,N);bond(A,adn[1],P3(-3.6,1.05),0xaaaaaa,.04,'adenin');
+const rb=ring(A,'riboz',-1.2,0,5,.5,36,[0,0,O,0,0]);bond(A,pnt[3],rb[2],0xaaaaaa,.05,'adenin');
+const ox=P3(-.1,.15);bond(A,rb[0],ox,0xaaaaaa,.045,'riboz');ball(A,'fosfat',ox,.13,O);
+const gam=new T.Group();A.g.add(gam);const px=[.6,2,3.5];
+function phos(x,g){par=g;ball(A,'fosfat',P3(x,0),.3,PH);[[0,.5,.2],[0,-.5,.2],[0,.05,.6]].forEach(o=>{const q=P3(x+o[0],o[1],o[2]);bond(A,P3(x,0),q,0xbbbbbb,.04,'fosfat');ball(A,'fosfat',q,.14,O)});par=null}
+bond(A,ox,P3(.6,0),0xaaaaaa,.045,'fosfat');phos(.6,null);phos(2,null);phos(3.5,gam);
+ball(A,'bag',P3(1.3,0),.14,O);bond(A,P3(.6,0),P3(1.3,0),0xff5a5a,.07,'bag');bond(A,P3(1.3,0),P3(2,0),0xff5a5a,.07,'bag');
+par=gam;ball(A,'bag',P3(2.75,0),.14,O);bond(A,P3(2,0),P3(2.75,0),0xff5a5a,.07,'bag');bond(A,P3(2.75,0),P3(3.5,0),0xff5a5a,.07,'bag');
+const cPi=put(A,'Pi','#ea580c',3.5,-.9,.8,.6);par=null;
+put(A,'Adenin','#2850c8',-3.2,1.45,.8,1);put(A,'Riboz','#a52a2a',-1.2,1.1,.8,.8);
+[['α',.6],['β',2],['γ',3.5]].forEach(([t,x])=>{const s=put(A,t,'#c2410c',x,1,.8,.45);if(x>3)gam.add(s),s.position.set(x,1,.8)});
+const cATP=put(A,'ATP','#ca8a04',-.4,-1.6,.8,1,'#111'),cADP=put(A,'ADP','#0d9488',-.4,-1.6,.8,1);cADP.visible=false;cPi.visible=false;
+put(A,'~ yüksek enerjili bağ','#b91c1c',1.8,-.8,.8,1.6);
+let hy=false;
+A.items=[['adenin','Adenin','Adenin (azotlu organik baz)','Çift halkalı bir bazdır. Azot atomları mavi gösterilmiştir.'],['riboz','Riboz','Riboz (5 karbonlu şeker)','Adenin ve fosfat zincirini birbirine bağlar. Adenin + riboz = adenozin.'],['fosfat','Fosfatlar','Üç fosfat grubu','Adenozine bağlı α, β ve γ fosfatlardır. Fosfatlar negatif yüklüdür, birbirini iter; bu yüzden aralarındaki bağ enerjilidir.'],['bag','Enerjili bağ','Yüksek enerjili fosfat bağları','Son iki bağ (kırmızı) kopunca yaklaşık 30,5 kJ/mol enerji açığa çıkar. Bu enerji hücrede iş yapmak için kullanılır. ATP + H₂O → ADP + Pi + enerji.']];
+const cE1=put(A,'⚡ enerji açığa çıkar','#b91c1c',2.6,2,.8,1.9),cE2=put(A,'⚡ enerji verilir','#1d4ed8',2.6,2,.8,1.9);cE1.visible=cE2.visible=false;
+function setHy(b){hy=b;cATP.visible=!b;cADP.visible=b;cPi.visible=b;cE1.visible=b;cE2.visible=!b}
+A.extra=()=>[btn('Defosforilasyon: ATP → ADP + Pi + enerji',()=>setHy(true)),btn('Fosforilasyon: ADP + Pi + enerji → ATP',()=>setHy(false))];
+
+/* 3. PIGMENTLER */
+const PG=view('pig',9.5,4.2);
+const ch=new T.Group(),ca=new T.Group();PG.g.add(ch,ca);par=ch;
+const R=1.05,rg=[];[[R,0,180],[0,R,270],[-R,0,0],[0,-R,90]].forEach(([x,y,r])=>rg.push(ring(PG,'kla',x,y,5,.42,r,[N])));
+rg.forEach(p=>bond(PG,P3(0,0),p[0],0x5fd35f,.05,'kla'));ball(PG,'kla',P3(0,0),.22,0x5fd35f);
+for(let i=0;i<4;i++){const a=rg[i],b=rg[(i+1)%4],m=P3((a[0].x+b[0].x)/2,(a[0].y+b[0].y)/2).multiplyScalar(1.15);ball(PG,'kla',m,.13,0x8c8c8c);[a,b].forEach(r=>{const q=r.slice().sort((u,w)=>u.distanceTo(m)-w.distanceTo(m))[0];bond(PG,m,q,0xaaaaaa,.04,'kla')})}
+let tp=rg[0][2],tl=tp.clone();ball(PG,'kla',tp,.01,0x8c8c8c);
+for(let i=0;i<13;i++){const q=P3(tp.x+.38*(i+1),tp.y-.25+(i%2?.2:-.2),(i%2?.15:0));ball(PG,'kla',q,.1,0xc9d96a);bond(PG,tl,q,0xc9d96a,.04,'kla');tl=q}
+const sa=ball(PG,'kla',P3(0,R+.6),.12,0x8c8c8c),sb=ball(PG,'kla',P3(0,R+.6),.17,O);bond(PG,rg[1][2],P3(0,R+.6),0xaaaaaa,.04);
+put(PG,'Mg²⁺','#2f7d32',0,.5,.8,.8);put(PG,'Porfirin halkası','#2850c8',-2.6,1.7,.8,1.7);put(PG,'Fitol kuyruğu','#6b7d1f',3.6,-1.1,.8,1.5);
+const lA=put(PG,'CH₃ (Kl a)','#555',1.1,2.1,.8,1.1),lB=put(PG,'CHO (Kl b)','#b91c1c',1.1,2.1,.8,1.1);par=ca;
+const cz=[];for(let i=0;i<22;i++){const q=P3(-3.8+i*.36,i%2?.18:-.18);if(cz.length)bond(PG,cz[cz.length-1],q,0xff8a1f,.05);ball(PG,'kar',q,.12,0xff8a1f);cz.push(q)}
+ring(PG,'kar',-4.7,0,6,.4,0,[]);ring(PG,'kar',4.3,0,6,.4,0,[]);put(PG,'Konjuge çift bağlar','#c2410c',0,1,.8,1.8);par=null;
+const ps=new T.Group();PG.g.add(ps);par=ps;
+[[1.3,10],[2.3,16]].forEach(([r,n])=>{for(let i=0;i<n;i++){const a=i/n*6.283;ball(PG,'ps',P3(r*Math.cos(a),r*Math.sin(a),(i%2)*.25),.17,i%4===3?0xff8a1f:0x2fbf55)}});
+ball(PG,'ps',P3(0,0),.3,0xe8ffd0);put(PG,'Reaksiyon merkezi (P680 / P700)','#14532d',0,-.7,.9,2);put(PG,'Anten klorofilleri + karotenoitler','#475569',0,-3,.9,2.3);put(PG,"ETS'ye",'#1d4ed8',3.6,2.5,.9,.9);par=null;ps.visible=false;
+const SP={kla:[[430,18,1],[662,14,.8]],klb:[[453,16,.8],[642,14,.55]],kar:[[450,24,.7],[485,18,.6]]},SC={kla:'#2e9e44',klb:'#2f80c8',kar:'#e8771a'};
+PG.items=[['kla','Klorofil a','Klorofil a','Reaksiyon merkezindeki ana pigmenttir. Mavi-mor (~430 nm) ve kırmızı (~662 nm) ışığı soğurur, yeşili yansıtır. Mg²⁺ taşıyan porfirin halkası ışığı soğurur, fitol kuyruğu zara tutunur.'],['klb','Klorofil b','Klorofil b','Yardımcı pigmenttir. Klorofil a\'dan metil yerine aldehit (CHO) grubu taşımasıyla ayrılır; ~453 ve ~642 nm\'de soğurur ve enerjiyi klorofil a\'ya aktarır.'],['kar','Karotenoit','Karotenoit','Turuncu-sarı pigmentlerdir. Mavi-yeşil (450–500 nm) ışığı soğurur, enerjiyi klorofile aktarır ve fazla ışığın hasar vermesini önler.']];
+function spec(s){const c=$('#spec'),x=c.getContext('2d'),W=420,H=110;x.clearRect(0,0,W,H);const g=x.createLinearGradient(0,0,W,0);['#6a00ff','#0050ff','#00b0ff','#00c040','#e0e000','#ff9000','#ff1a1a'].forEach((cl,i)=>g.addColorStop(i/6,cl));x.fillStyle=g;x.fillRect(0,92,W,10);
+const X=n=>(n-400)/300*W;for(const k in SP){x.beginPath();x.strokeStyle=SC[k];x.lineWidth=k===s?3.5:1.3;x.globalAlpha=k===s?1:.4;for(let i=0;i<=W;i++){const n=400+i/W*300;let y=0;SP[k].forEach(([m,w,a])=>y+=a*Math.exp(-((n-m)**2)/(2*w*w)));const py=88-y*70;i?x.lineTo(i,py):x.moveTo(i,py)}x.stroke()}x.globalAlpha=1;x.fillStyle=getComputedStyle(document.body).color;x.font='11px system-ui';x.fillText('400 nm',2,108);x.fillText('700 nm',W-42,108);x.fillText('soğurma',2,12)}
+
+/* 4. FOTOSENTEZ */
+const F=view('photo',11,10.8);F.g.position.y=-2.3;
+const mk=(k,geo,c,x,y)=>{const m=mesh(F,k,geo,c);m.position.set(x,y,0);return m};
+mesh(F,'lumen',new T.BoxGeometry(9.4,1.6,1.4),0x4aa3ff,{transparent:true,opacity:.18,depthWrite:false}).position.y=-.95;
+mk('mem',new T.BoxGeometry(9.4,.3,1.4),0x2e8b57,0,0);
+mk('psii',new T.CylinderGeometry(.5,.5,1.1,24),0x1fa34a,-3,0);mk('ets',new T.BoxGeometry(.8,1.1,.8),0x3b82f6,-.8,0);mk('psi',new T.CylinderGeometry(.5,.5,1.1,24),0x0e7a3a,1.2,0);
+mk('atps',new T.CylinderGeometry(.32,.32,1.1,20),0x9a6bd1,3.4,0);
+const rot=new T.Group();rot.position.set(3.4,1,0);F.g.add(rot);par=rot;mesh(F,'atps',new T.SphereGeometry(.45,20,16),0xb48ae6);mesh(F,'atps',new T.BoxGeometry(.1,.7,.1),0x5b2d8e).position.set(.4,0,0);par=null;
+const tor=mk('calvin',new T.TorusGeometry(.8,.1,12,40),0xe0a030,.4,4.8);
+[[-3,'psii'],[1.2,'psi']].forEach(([x,k])=>{for(let i=0;i<9;i++){const a=i/9*6.283,b=mesh(F,k,new T.SphereGeometry(.09,10,8),i%3===2?0xff8a1f:0x3fdc6a);b.position.set(x+.55*Math.cos(a),.62,.55*Math.sin(a))}});
+const LP=[],lg=new T.SphereGeometry(.07,8,6),lm=new T.MeshPhongMaterial({color:0xe8d27a});
+for(let i=0;i<62;i++)[-.5,0,.5].forEach(z=>[.18,-.18].forEach(y=>{const m=new T.Mesh(lg,lm);m.position.set(-4.6+i*.15,y,z);m.userData={y,i};F.g.add(m);LP.push(m)}));
+put(F,'Toprak (NO₃⁻, NH₄⁺)','#78350f',4.9,-2.9,.9,1.6);
+[['FS II','#14532d',-3,.95],['ETS','#1d4ed8',-.8,.95],['FS I','#14532d',1.2,.95],['ATP sentaz','#6d28d9',3.4,-.85,1.3],['Calvin döngüsü','#92400e',.4,4.8,1.5],['Stroma','#475569',-4.1,3,.9],['Tilakoit lümeni','#1e40af',.4,-1.7,1.7],['Tilakoit zarı','#166534',-.8,-.35,1.3]].forEach(a=>put(F,a[0],a[1],a[2],a[3],.9,a[4]||.75));
+const COL={'ışık':['#d99a00','#111'],'H₂O':['#2563eb'],'e⁻':['#06b6d4','#111'],'H⁺':['#dc2626'],'O₂':['#6b7280'],'NADP⁺':['#7c3aed'],'NADPH':['#a21caf'],'ADP':['#0d9488'],'Pi':['#ea580c'],'ATP':['#ca8a04','#111'],'CO₂':['#475569'],'PGAL':['#16a34a']};
+const tk=(t,pts,d,du=2)=>[t,pts,d,du];
+const S=[
+['Işığın granuma gelişi','psii,psi','Güneş ışığı (fotonlar) tilakoit zarına ulaşır. Fotosistem II ve I\'deki klorofil ve yardımcı pigmentler ışığı soğurur; klorofil elektronları yüksek enerji düzeyine çıkar (uyarılır).',[tk('ışık',[[-3.5,6.6],[-3,.9]],0),tk('ışık',[[-2.6,6.9],[-3,.9]],.5),tk('ışık',[[.8,6.6],[1.2,.9]],.2),tk('ışık',[[1.7,6.9],[1.2,.9]],.7)]],
+['Fotoliz','psii','FS II\'de lümen tarafında su parçalanır: 2H₂O → 4H⁺ + 4e⁻ + O₂. Elektronlar FS II\'nin kaybettiği elektronların yerini alır, H⁺ iyonları lümende birikir, O₂ ise dışarı verilir.',[tk('H₂O',[[-4.2,-1.3],[-3.1,-.4]],0),tk('H₂O',[[-3.6,-1.5],[-3.1,-.4]],.4),tk('e⁻',[[-3,-.3],[-3,.6]],2.2),tk('H⁺',[[-3,-.3],[-2.3,-1.2]],2.2),tk('H⁺',[[-3.2,-.3],[-3.9,-1.2]],2.4),tk('O₂',[[-3.2,-.4],[-4.6,-2.3]],2.4,2.6)]],
+['Elektron taşıma sistemi (ETS)','psii,ets,psi','Uyarılmış elektronlar FS II\'den ETS\'ye (plastokinon, sitokrom b6f, plastosiyanin), oradan FS I\'e geçer. Elektronların enerjisiyle H⁺ iyonları stromadan lümene pompalanır; lümen asidik olur.',[tk('e⁻',[[-3,.9],[-1.9,1.3],[-.8,1.1],[.2,1.3],[1.2,.9]],0,3.2),tk('e⁻',[[-3,.9],[-1.9,1.3],[-.8,1.1],[.2,1.3],[1.2,.9]],1,3.2),tk('H⁺',[[-.8,2],[-.8,-1.1]],.4,2),tk('H⁺',[[-.4,2.2],[-.4,-1.2]],1.4,2),tk('H⁺',[[-1.2,2.2],[-1.3,-1.2]],2.4,2)]],
+['NADPH oluşumu','psi','FS I\'de yeniden uyarılan elektronlar ferredoksin üzerinden NADP redüktaza gelir. NADP⁺, elektronlarla ve stromadaki H⁺ ile birleşerek NADPH\'a indirgenir: NADP⁺ + 2e⁻ + 2H⁺ → NADPH + H⁺. NADPH Calvin döngüsüne gider.',[tk('e⁻',[[1.2,.9],[1.2,2.2],[2.1,2]],0,2),tk('NADP⁺',[[3.2,3.2],[2.2,2]],0,2),tk('H⁺',[[2.9,3.4],[2.2,2.1]],.5,1.8),tk('NADPH',[[2.2,2],[1,4.2]],2.6,2.4)]],
+['ATP sentez (kemiosmoz)','atps','Lümende biriken H⁺ iyonları derişim farkı nedeniyle ATP sentaz kanalından stromaya geçer. Rotor döner ve ADP + Pi → ATP (fotofosforilasyon). ATP, Calvin döngüsüne gider.',[tk('H⁺',[[2.6,-1.2],[3.4,-.3],[3.4,.9]],0,2),tk('H⁺',[[4.2,-1.3],[3.4,-.3],[3.4,.9]],.8,2),tk('H⁺',[[3,-1.5],[3.4,-.3],[3.4,.9]],1.6,2),tk('ADP',[[4.6,3.3],[3.8,1.5]],0,2),tk('Pi',[[2.8,3.3],[3.1,1.5]],.3,2),tk('ATP',[[3.4,1.6],[1.4,4.3]],3,2.6)]],
+['PGAL oluşumu (Calvin)','calvin','Stromada CO₂, RuBP\'ye bağlanır (RuBisCO). ATP ve NADPH\'ın enerjisi kullanılarak PGAL (G3P) sentezlenir. Harcanan ATP, ADP + Pi; NADPH ise NADP⁺ olarak ışığa bağlı tepkimelere geri döner.',[tk('CO₂',[[-1.2,6.8],[-.1,5.2]],0,2),tk('ATP',[[3.4,1.6],[1.1,4.3]],.2,2),tk('NADPH',[[2.2,2],[1.1,4.5]],.4,2),tk('PGAL',[[.4,5.7],[-1.8,6.4]],2.6,2.4),tk('NADP⁺',[[.8,4.2],[2.2,2]],3,2.2),tk('ADP',[[.9,4.1],[3.8,1.6]],3.2,2.6),tk('Pi',[[.6,4.1],[2.9,1.6]],3.4,2.4)]],
+['Organik madde sentezi','calvin','PGAL\'dan glikoz, nişasta, lipit ve amino asit gibi organik maddeler yapılır. NADP⁺, ADP ve Pi yeniden ışığa bağlı tepkimelerde kullanılır. Özet: 6CO₂ + 12H₂O → C₆H₁₂O₆ + 6O₂ + 6H₂O.',[tk('PGAL',[[.4,5.7],[-3,4.2]],0,3),tk('Glikoz',[[-3,4.2],[-3.8,3.6]],3,2.4),tk('PGAL',[[.4,5.7],[-3,6.2]],.3,3),tk('Nişasta',[[-3,6.2],[-3.8,5.6]],3.3,2.4),tk('PGAL',[[.4,5.7],[-1,7.1]],.6,3),tk('Lipit',[[-1,7.1],[-1.8,7.5]],3.6,2.2),tk('Amino asit',[[.4,5.7],[2.6,6.2]],.9,3),tk('NADP⁺',[[1,4],[2.2,2]],3,3),tk('ADP',[[1.2,4],[3.8,1.6]],3.4,3),tk('Pi',[[.8,4],[2.9,1.6]],3.8,3)]]
+];
+COL['NO₃⁻/NH₄⁺']=['#0369a1'];COL['enerji']=['#f59e0b','#111'];
+S[6][2]="PGAL'dan glikoz (nişasta ve selülozun ham maddesi), gliserol ve yağ asitleri (lipit) sentezlenir. Özet: 6CO₂ + 12H₂O → C₆H₁₂O₆ + 6O₂ + 6H₂O.";
+S[6][3]=[tk('PGAL',[[.4,5.7],[-3,4.2]],0,3),tk('Glikoz',[[-3,4.2],[-3.9,3.5]],3,2.4),tk('PGAL',[[.4,5.7],[-3,6.2]],.4,3),tk('Gliserol',[[-3,6.2],[-3.9,5.6]],3.4,2.4),tk('PGAL',[[.4,5.7],[-1,7.2]],.8,3),tk('Yağ asidi',[[-1,7.2],[-1.9,7.6]],3.8,2.2),tk('PGAL',[[.4,5.7],[2.6,6.4]],1.2,3),tk('Nişasta',[[2.6,6.4],[3.6,5.9]],4.2,2.4)];
+S.push(['Azot alımı ve azotlu bileşikler','calvin',"Kökler topraktan nitrat (NO₃⁻) ve amonyum (NH₄⁺) tuzlarını alır; nitrat amonyağa indirgenir. Azot, PGAL kaynaklı karbon iskeletleriyle birleşerek amino asit ve nükleotit (DNA, RNA, ATP yapısı) sentezini sağlar. Vitaminler de bu ara ürünlerden yapılır.",[tk('NO₃⁻/NH₄⁺',[[5.2,-2.5],[5.2,4.6],[1.4,5.2]],0,3),tk('PGAL',[[.4,5.7],[-.4,6.5]],2.4,1.6),tk('Amino asit',[[-.4,6.5],[-2.8,6.9]],3.4,2.2),tk('Nükleotit',[[-.2,6.2],[-3.6,5.2]],3.8,2.2),tk('Vitamin',[[.8,6.4],[3.6,7.3]],4.2,2.2)]],
+['Geri dönüşüm döngüsü','psi,atps',"Stromada harcanan NADP⁺, ADP ve Pi tilakoit zarına geri döner: NADP⁺ FS I'in NADP redüktazına, ADP ve Pi ATP sentaza ulaşır. Işık sürdükçe döngü yeniden başlar ve NADPH ile ATP tekrar üretilir.",[tk('NADP⁺',[[.6,4],[1.4,3.2],[2.2,2]],0,2.6),tk('NADP⁺',[[.8,4.2],[1.6,3],[2.2,2]],1.4,2.6),tk('ADP',[[.9,4.1],[3.8,1.5]],.4,2.6),tk('Pi',[[.6,4.1],[2.9,1.5]],.8,2.6),tk('ADP',[[1,4.2],[3.8,1.5]],2.2,2.6),tk('Pi',[[.7,4.2],[2.9,1.5]],2.6,2.6),tk('ışık',[[2.4,6.8],[1.2,.9]],4,2)]]);
+const SH=['Işık','Fotoliz','ETS','NADPH','ATP','PGAL','Organik','Azot','Geri dönüş'];
+const PSC=[tk('ışık',[[-4.2,3.4],[-2,1.7]],0),tk('ışık',[[-4,2],[-2.2,.5]],.3,2),tk('enerji',[[-2.1,1.4],[-1.2,.8],[0,0]],1.6,1.8),tk('e⁻',[[0,0],[0,1.6],[3.2,2.4]],3.2,2.2)];
+PG.items.push(['ps','Fotosistem','Fotosistem (FS II / FS I)',"Anten klorofilleri ve karotenoitler ışığı toplar, enerjiyi reaksiyon merkezindeki özel klorofile (FS II'de P680, FS I'de P700) aktarır. Uyarılan elektron merkezi terk eder ve ETS'ye geçer."]);
+F.items=S.map((s,i)=>['s'+i,(i+1)+' '+SH[i],(i+1)+'. '+s[0],s[2]]);
+let toks=[],step=0,t0=0,play=false,now=0,TP=8;
+function GM(c){const k=document.createElement('canvas');k.width=k.height=64;const x=k.getContext('2d'),g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,c);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new T.SpriteMaterial({map:new T.CanvasTexture(k),blending:T.AdditiveBlending,transparent:true,depthTest:false,opacity:.85})}
+function runScript(g,list){t0=now;toks.forEach(t=>{t.s.parent&&t.s.parent.remove(t.s);t.gl&&t.gl.parent&&t.gl.parent.remove(t.gl)});toks=[];list.forEach(([t,p,d,du])=>{const c=COL[t]||['#15803d'],sp=chip(t,c[0],t.length>5?1.1:.7,c[1]);sp.visible=false;g.add(sp);const o={s:sp,p:p.map(a=>P3(a[0],a[1],1)),d,du};if(t==='ışık'||t==='e⁻'||t==='enerji'){o.gl=new T.Sprite(GM(c[0]));o.gl.scale.set(1.4,1.4,1);o.gl.visible=false;g.add(o.gl)}toks.push(o)})}
+function setStep(i){step=i;runScript(F.g,S[i][3]);glow(F,S[i][1].split(','))}
+F.extra=()=>[btn('Otomatik oynat',function(){play=!play;this.setAttribute('aria-pressed',play)})];
+F.pick=(k,i)=>setStep(i);
+
+/* UI */
+function btn(t,fn,pr){const b=document.createElement('button');b.textContent=t;b.onclick=fn;if(pr!==undefined)b.setAttribute('aria-pressed',pr);return b}
+const names={chloro:'Kloroplast',atp:'ATP yapısı',pig:'Pigmentler',photo:'Fotosentez'};
+function show(it){$('#info h2').textContent=it[2];$('#info p').textContent=it[3]}
+function pick(k,i){const v=V[cur],it=v.items[i];glow(v,it[0]);show(it);[...$('#items').children].forEach((b,j)=>b.setAttribute('aria-pressed',j===i));
+ if(cur==='pig'){const q=it[0];ch.visible=q==='kla'||q==='klb';ca.visible=q==='kar';ps.visible=q==='ps';sa.visible=lA.visible=q==='kla';sb.visible=lB.visible=q==='klb';$('#spec').style.display=q==='ps'?'none':'block';runScript(PG.g,q==='ps'?PSC:[]);if(q!=='ps')spec(q)}
+ if(cur==='photo')setStep(i)}
+function go(k){cur=k;for(const x in V)V[x].g.visible=x===k;[...$('#tabs').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===k));
+ const v=V[k];$('#items').innerHTML='';v.items.forEach((it,i)=>$('#items').appendChild(btn(it[1],()=>pick(k,i),false)));
+ $('#extra').innerHTML='';(v.extra?v.extra():[]).forEach(b=>$('#extra').appendChild(b));$('#spec').style.display=k==='pig'?'block':'none';v.g.rotation.set(0,0,0);runScript(v.g,[]);pick(k,0);fit()}
+for(const k in names){const b=btn(names[k],()=>{tour=false;$('#tourb')&&$('#tourb').setAttribute('aria-pressed',false);go(k)},false);b.dataset.k=k;$('#tabs').appendChild(b)}
+function fit(){const st=$('#stage'),w=st.clientWidth,h=st.clientHeight;rd.setSize(w,h);cam.aspect=w/h;const v=V[cur];if(v){bz=Math.max(v.w/(.828*cam.aspect),v.h/.828)+1.5}cam.updateProjectionMatrix()}
+addEventListener('resize',fit);
+let dr=false,lx=0,ly=0,auto=true;const el=rd.domElement;
+const TOUR=[['chloro',3],['atp',0,true],['atp',3,false],['pig',0],['pig',3],...Array.from({length:9},(_,i)=>['photo',i])];
+function stepTour(){const q=TOUR[ti];if(cur!==q[0])go(q[0]);pick(q[0],q[1]);if(q[2]!==undefined)setHy(q[2]);tt=now}
+const tb=btn('▶ Hikâyeyi oynat',()=>{tour=!tour;tb.setAttribute('aria-pressed',tour);if(tour){ti=0;play=false;stepTour()}},false);tb.id='tourb';
+$('#tabs').append(tb,btn('＋',()=>zf=Math.max(.45,zf*.8)),btn('－',()=>zf=Math.min(1.8,zf*1.25)));
+el.addEventListener('wheel',e=>{e.preventDefault();zf=Math.max(.45,Math.min(1.8,zf*(e.deltaY>0?1.1:.9)))},{passive:false});
+el.addEventListener('pointerdown',e=>{dr=true;auto=false;lx=e.clientX;ly=e.clientY;el.setPointerCapture(e.pointerId)});
+el.addEventListener('pointerup',()=>dr=false);
+el.addEventListener('pointermove',e=>{if(!dr)return;const g=V[cur].g;g.rotation.y=Math.max(-1.3,Math.min(1.3,g.rotation.y+(e.clientX-lx)*.008));g.rotation.x=Math.max(-.8,Math.min(.8,g.rotation.x+(e.clientY-ly)*.008));lx=e.clientX;ly=e.clientY});
+const calm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+(function loop(ms){requestAnimationFrame(loop);now=ms/1000;
+ pl.position.set(Math.sin(now*.5)*6,4,Math.cos(now*.5)*4+3);
+ if(tour&&now-tt>(TOUR[ti][0]==='photo'?TP:8)){ti++;if(ti>=TOUR.length){tour=false;tb.setAttribute('aria-pressed',false)}else stepTour()}
+ if(cur==='chloro'&&auto&&!calm)V.chloro.g.rotation.y+=.004;
+ if(cur==='atp'){const tx=hy?2.2:0,ty=hy?1.2:0;gam.position.x+=(tx-gam.position.x)*.06;gam.position.y+=(ty-gam.position.y)*.06;A.m.bag.forEach(m=>m.emissive.setRGB(.35+.3*Math.sin(now*4),.04,.04))}
+ if(cur==='photo'){if(step===4&&!calm)rot.rotation.y+=.07;if(play&&now-t0>=TP)setStep((step+1)%S.length);
+  LP.forEach(m=>m.position.y=m.userData.y+Math.sin(now*1.6+m.userData.i*.8)*.035);
+  [...$('#items').children].forEach((b,j)=>b.setAttribute('aria-pressed',j===step))}
+ const ph=(now-t0)%TP;toks.forEach(t=>{const u=(ph-t.d)/t.du,ok=u>=0&&u<=1;t.s.visible=ok;if(t.gl)t.gl.visible=ok;if(!ok)return;const n=t.p.length-1,f=Math.min(u*n,n-1e-6),i=Math.floor(f);t.s.position.lerpVectors(t.p[i],t.p[i+1],f-i);if(t.gl)t.gl.position.copy(t.s.position);t.s.material.opacity=Math.min(1,u*6,(1-u)*6)});
+ cam.position.z=bz*zf;cam.position.x=calm?0:Math.sin(now*.25)*.9;cam.lookAt(0,0,0);
+ if(cur)rd.render(scene,cam)})(0);
+go('chloro');
+</script></body></html>
